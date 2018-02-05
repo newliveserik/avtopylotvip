@@ -3,6 +3,7 @@ package kz.avtopylot.avtopylot;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -21,11 +22,13 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+
 
 public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback,
         GoogleApiClient.ConnectionCallbacks,
@@ -34,6 +37,7 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
 
     GoogleApiClient mGoogleApiClient;
     Location mLastLocation;
+
     LocationRequest mLocationRequest;
     private GoogleMap mMap;
     private Button mLogOut,mRequest;
@@ -50,6 +54,7 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
 
         mLogOut = (Button)findViewById(R.id.logout);
         mRequest = (Button)findViewById(R.id.request);
+        mLastLocation = mLastLocation;
         mLogOut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,8 +71,10 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
                 DatabaseReference ref =FirebaseDatabase.getInstance().getReference("customerRequest");
                 GeoFire geoFire = new GeoFire(ref);
                 geoFire.setLocation(userId, new GeoLocation(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+
                 pickupLocation = new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude());
-                mMap.addMarker(new MarkerOptions().position(pickupLocation).title("Кликните на меня"));
+
+                mMap.addMarker(new MarkerOptions().position(pickupLocation).title("Кликните на меня")).setIcon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_launcher));
                 mRequest.setText("Ищем водителя...");
             }
         });
@@ -95,9 +102,12 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onLocationChanged(Location location) {
-        LatLng latLng = new LatLng(location.getLatitude(),location.getLongitude());
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        if(getApplicationContext()!=null) {
+            mLastLocation =location;
+            LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        }
 
     }
 
