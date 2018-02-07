@@ -172,7 +172,13 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
                     loc2.setLongitude(pickupLocation.longitude);
 
                     float distance = loc1.distanceTo(loc2);
-                    mRequest.setText("Водитель Найден" + String.valueOf(distance));
+                    if(distance<100){
+
+                        mRequest.setText("Водитель уже рядом" + String.valueOf(distance));
+                    }
+                    else{
+                        mRequest.setText("Водитель Найден");
+                    }
 
                     mDriverMarker = mMap.addMarker(new MarkerOptions().position(driverLatLng).title("Ваш водитель"));
 
