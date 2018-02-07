@@ -14,6 +14,8 @@ import android.widget.Button;
 
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
+import com.firebase.geofire.GeoQuery;
+import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
@@ -24,10 +26,17 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.HashMap;
+import java.util.List;
 
 
 public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback,
@@ -76,6 +85,104 @@ public class CustomerMaps extends FragmentActivity implements OnMapReadyCallback
 
                 mMap.addMarker(new MarkerOptions().position(pickupLocation).title("Кликните на меня")).setIcon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_launcher));
                 mRequest.setText("Ищем водителя...");
+                getClosestDriver();
+            }
+        });
+    }
+    private int radius =1;
+    private Boolean driverFound = false;
+    private String driverFoundId;
+
+    private void getClosestDriver() {
+        DatabaseReference driverLocation = FirebaseDatabase.getInstance().getReference().child("driversAvailable");
+        GeoFire geoFire = new GeoFire(driverLocation);
+        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(pickupLocation.latitude,pickupLocation.longitude),radius);
+        geoQuery.removeAllListeners();
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, GeoLocation location) {
+                if(!driverFound){
+                driverFound = true;
+                driverFoundId = key;
+
+                DatabaseReference driverRed =FirebaseDatabase.getInstance().getReference().child("Users").child("Drivers").child(driverFoundId);
+                String customerId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+                    HashMap map  = new HashMap();
+                    map.put("customerRiderId",customerId);
+                    driverRed.updateChildren(map);
+                    getDriverLocation();
+                    mRequest.setText("Ищем поблизости трезвого водителя");
+                }
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+                if(!driverFound){
+                    radius++;
+                    getClosestDriver();
+                }
+            }
+
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+
+            }
+        });
+    }
+
+    private Marker mDriverMarker;
+    private void getDriverLocation() {
+        DatabaseReference driverLocationRef = FirebaseDatabase.getInstance().getReference().child("driversWorking").child(driverFoundId).child("i");
+        driverLocationRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if(dataSnapshot.exists()){
+                    List<Object>map = (List<Object>) dataSnapshot.getValue();
+                    double locationLat = 0;
+                    double locationLong = 0;
+
+                    if(map.get(0) != null){
+
+                        locationLat = Double.parseDouble(map.get(0).toString());
+                    }
+                    if(map.get(1) != null){
+
+                        locationLong = Double.parseDouble(map.get(1).toString());
+                    }
+                    LatLng driverLatLng = new LatLng(locationLat,locationLong);
+                    if(mDriverMarker != null){
+                        mDriverMarker.remove();
+                    }
+                    Location loc1 = new Location("");
+                    loc1.setLatitude(pickupLocation.latitude);
+                    loc1.setLongitude(pickupLocation.longitude);
+
+                    Location loc2 = new Location("");
+                    loc2.setLatitude(pickupLocation.latitude);
+                    loc2.setLongitude(pickupLocation.longitude);
+
+                    float distance = loc1.distanceTo(loc2);
+                    mRequest.setText("Водитель Найден" + String.valueOf(distance));
+
+                    mDriverMarker = mMap.addMarker(new MarkerOptions().position(driverLatLng).title("Ваш водитель"));
+
+
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
             }
         });
     }
